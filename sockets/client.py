@@ -84,7 +84,7 @@ def client_loop(sock: socket.socket):
     # start listener as thread
     start_new_thread(listen_for_msg, (sock,))
     
-    message = input("Chat: ")
+    message = input("> ")
     while(message != "/quit"):
         pattern = re.compile(r"\/.*") # don't send anything that starts with a slash.
         sys.stdout.write("\033[A\033[2K\r")
@@ -92,7 +92,7 @@ def client_loop(sock: socket.socket):
         if pattern.match(message):
             print("[CLIENT_ERR] Invalid command. Type /quit to quit the program.")
         sock.send(message.encode(encoding="utf-8"))
-        message = input("Chat: ")
+        message = input("> ")
     
     print("Disconnecting from server...")
     sock.close()

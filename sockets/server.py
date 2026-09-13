@@ -79,10 +79,6 @@ def broadcast(message:str):
         for client in active_clients.values():
             client.send(message.encode(encoding="utf-8"))
 
-# def safe_print(*args, **kwargs):
-#     with print_lock:
-#         print(*args, **kwargs)
-
 def main():
     port = input_args_handler()
     init_socket(port)
