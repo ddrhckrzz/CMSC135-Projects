@@ -16,7 +16,7 @@ def input_args_handler() -> tuple:
         default="127.0.0.1"
     )
     parser.add_argument(
-        "port", "-p", "--port",
+        "-p", "--port",
         help="Port to connect to the server.",
         default=None
     )
@@ -54,7 +54,7 @@ def init_socket(port: int, host: str = "127.0.0.1"):
     """
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        client_socket.connect(host, port)
+        client_socket.connect((host, port))
         # Enter client loop
         client_loop(client_socket)
     except TimeoutError:
@@ -72,16 +72,7 @@ def listen_for_msg(sock: socket.socket):
         if not msg:
             sys.exit("Client disconnected from server. Exiting...")
 
-        # Source - https://stackoverflow.com/a/71087379
-        # Posted by Carson Thompson, modified by community. See post 'Timeline' for change history
-        # Retrieved 2026-09-13, License - CC BY-SA 4.0
-        print("\u001B[s", end="")     # Save current cursor position
-        print("\u001B[A", end="")     # Move cursor up one line
-        print("\u001B[999D", end="")  # Move cursor to beginning of line
-        print("\u001B[S", end="")     # Scroll up/pan window down 1 line
-        print("\u001B[L", end="")     # Insert new line
-        print(msg.decode(encoding="utf-8"), end="")     # Print msg
-        print("\u001B[u", end="")     # Jump back to saved cursor position
+        print(f"\r\033[K{msg.decode("utf-8")}\n> ", end="", flush=True)
 
 
 def client_loop(sock: socket.socket):
@@ -96,6 +87,8 @@ def client_loop(sock: socket.socket):
     message = input("Chat: ")
     while(message != "/quit"):
         pattern = re.compile(r"\/.*") # don't send anything that starts with a slash.
+        sys.stdout.write("\033[A\033[2K\r")
+        sys.stdout.flush()
         if pattern.match(message):
             print("[CLIENT_ERR] Invalid command. Type /quit to quit the program.")
         sock.send(message.encode(encoding="utf-8"))

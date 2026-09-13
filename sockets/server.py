@@ -8,7 +8,7 @@ import threading
 DEFAULT_PORT = 5757
 MAX_CLIENTS = 20
 
-print_lock = threading.Lock
+clients_lock = threading.Lock()
 active_clients = {}
 
 def input_args_handler() -> int:
@@ -17,7 +17,7 @@ def input_args_handler() -> int:
         description="Simple TCP Message Server (1024 Bytes)."
     )
     parser.add_argument(
-        "port", "-p", "--port",
+        "-p", "--port",
         help="Port to serve incoming connections.",
         default=DEFAULT_PORT
     )
@@ -35,7 +35,7 @@ def input_args_handler() -> int:
     
     return port
 
-def init_socket(host: str = "127.0.0.1", port: int = DEFAULT_PORT):
+def init_socket( port: int = DEFAULT_PORT, host: str = "127.0.0.1"):
     """Initializes the socket program.
 
     Args:
@@ -43,7 +43,7 @@ def init_socket(host: str = "127.0.0.1", port: int = DEFAULT_PORT):
         port (int, optional): Port Number. Defaults to DEFAULT_PORT.
     """
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind(host, port)
+    server_socket.bind((host, port))
     server_socket.listen(MAX_CLIENTS) # only accept up to MAX_CLIENTS amount of connections
     
     print(f"[system]: Server accepting connections on host {host} and port {port}.")
@@ -52,29 +52,31 @@ def init_socket(host: str = "127.0.0.1", port: int = DEFAULT_PORT):
 def server_loop(sock: socket.socket):
     while True:
         client_socket, _ = sock.accept()
-        name = sock.recv(1024).decode(encoding="utf-8")
+        name = client_socket.recv(1024).decode(encoding="utf-8")
         start_new_thread(client_handler, (client_socket, name,))
 
 def client_handler(sock: socket.socket, name: str):
     msg = f"[system]: {name} joined the chat."
-    active_clients[name] = sock
+    with clients_lock:
+        active_clients[name] = sock
     broadcast(msg)
     while True:
         message = sock.recv(1024)
         if not message:
             # something about them leaving, send it to everyone too
             msg = f"[system]: {name} left the chat."
-            active_clients.pop(name)
+            with clients_lock:
+                active_clients.pop(name)
             broadcast(msg)
             break
-        message = f"{name}: {message}"
+        message = f"{name}: {message.decode(encoding="utf-8")}"
         broadcast(message=message)
     sock.close()
 
 def broadcast(message:str):
-    with print_lock:
+    with clients_lock:
         print(message) # print to console first
-        for client in active_clients.keys():
+        for client in active_clients.values():
             client.send(message.encode(encoding="utf-8"))
 
 # def safe_print(*args, **kwargs):
@@ -83,7 +85,7 @@ def broadcast(message:str):
 
 def main():
     port = input_args_handler()
-    init_socket(port=port)
+    init_socket(port)
     sys.exit(0)
 
 if __name__ == "__main__":
