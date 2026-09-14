@@ -42,17 +42,31 @@ def init_socket( port: int = DEFAULT_PORT, host: str = "127.0.0.1"):
         host (str, optional): Hostname / IP Address. Defaults to "127.0.0.1".
         port (int, optional): Port Number. Defaults to DEFAULT_PORT.
     """
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind((host, port))
-    server_socket.listen(MAX_CLIENTS) # only accept up to MAX_CLIENTS amount of connections
+    try:
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.bind((host, port))
+        server_socket.listen(MAX_CLIENTS) # only accept up to MAX_CLIENTS amount of connections
+        
+        print(f"[system]: Server accepting connections on host {host} and port {port}.")
+
+        server_loop(server_socket)
+    except OSError as e:
+        print(f"OS Error: {e}")
+    except KeyboardInterrupt:
+        print(f"Keyboard Interrupt detected. Closing...")
     
-    print(f"[system]: Server accepting connections on host {host} and port {port}.")
-    server_loop(server_socket)
+    close_all(server_socket)
     
 def server_loop(sock: socket.socket):
     while True:
-        client_socket, _ = sock.accept()
+        client_socket, addr = sock.accept()
         name = client_socket.recv(1024).decode(encoding="utf-8")
+        if name in active_clients.keys():
+            msg = f"[system] Username \'{name}\' has already been taken. This request has been noted and sent to the admin."
+            client_socket.send(msg.encode(encoding="utf-8"))
+            print(f"[system] {addr} tried to connect with duplicate username of {name}.")
+            client_socket.close()
+            continue
         start_new_thread(client_handler, (client_socket, name,))
 
 def client_handler(sock: socket.socket, name: str):
@@ -79,10 +93,19 @@ def broadcast(message:str):
         for client in active_clients.values():
             client.send(message.encode(encoding="utf-8"))
 
+def close_all(sock: socket.socket):
+    for client in active_clients.values():
+        msg = f"[system] Server shutting down..."
+        client.send(msg.encode(encoding="utf-8"))
+        client.send(''.encode(encoding="utf-8"))
+        client.close()
+    sock.close()
+    sys.exit("Shutting down...")
+
 def main():
     port = input_args_handler()
     init_socket(port)
-    sys.exit(0)
+
 
 if __name__ == "__main__":
     main()

@@ -91,7 +91,8 @@ def client_loop(sock: socket.socket):
         sys.stdout.flush()
         if pattern.match(message):
             print("[CLIENT_ERR] Invalid command. Type /quit to quit the program.")
-        sock.send(message.encode(encoding="utf-8"))
+        else:
+            sock.send(message.encode(encoding="utf-8"))
         message = input("> ")
     
     print("Disconnecting from server...")
