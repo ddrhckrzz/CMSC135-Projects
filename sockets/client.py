@@ -5,6 +5,12 @@ import re
 
 from _thread import start_new_thread
 
+try:
+    import readline
+except ImportError:
+    # Windows fallback (requires: pip install pyreadline3)
+    import pyreadline3 as readline
+
 def input_args_handler() -> tuple:
     # Input Argument Handling
     parser = argparse.ArgumentParser(
@@ -66,13 +72,19 @@ def init_socket(port: int, host: str = "127.0.0.1"):
 
 def listen_for_msg(sock: socket.socket):
     while True:
-        msg = sock.recv(1024)
-        
-        # check if no message received: aka disconnected
-        if not msg:
-            sys.exit("Client disconnected from server. Exiting...")
+        try:
+            msg = sock.recv(1024)
+            if not msg:
+                sys.exit("Client disconnected from server. Exiting...")
 
-        print(f"\r\033[K{msg.decode("utf-8")}\n> ", end="", flush=True)
+            text = msg.decode("utf-8")
+
+            current_input = readline.get_line_buffer()
+            sys.stdout.write(f"\r\033[K{text}\n> {current_input}")
+            sys.stdout.flush()
+
+        except OSError:
+            break
 
 
 def client_loop(sock: socket.socket):
