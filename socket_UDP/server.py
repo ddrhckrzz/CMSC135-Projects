@@ -55,6 +55,21 @@ def init_socket( port: int = DEFAULT_PORT, host: str = "127.0.0.1"):
         print(f"Keyboard Interrupt detected. Closing...")
     
     close_all(server_socket)
+
+def calc_checksum(data: bytes) -> int:
+    if len(data) % 2 != 0:
+        data += b"\x00"
+
+    total = 0
+
+    for i in range(0, len(data), 2):
+        word = (data[i] << 8) + data[i + 1]
+        total += word
+
+    while total >> 16:
+        total = (total & 0xFFFF) + (total >> 16)
+        
+    return (~total) & 0xFFFF
     
 def listener(sock: socket.socket):
     while True:
@@ -64,17 +79,32 @@ def listener(sock: socket.socket):
         source_port, dest_port, length, checksum, payload = struct.unpack(">HHHH256s", data)
         message = payload.decode()
         
-        # check checksum idk
-        
-        # reply
-        reply = f"ACK|{message}"
-        sock.sendto(reply.encode(), addr)
-        
         print(f"[received from host src ={addr}:{source_port}]")
         print(f"[udp header src={source_port} dst={dest_port} len={length} checksum={checksum}]")
         print(f"[demultiplexing dst={dest_port} socket=server]")
-        print(f"[checksum valid]")
-        print(f"[message] {message}")
+        
+        
+        # check checksum idk
+        repacked_data = struct.pack(">HHHH", source_port, dest_port, length, 0)
+        repacked_data = repacked_data + payload
+        
+        calced_checksum = calc_checksum(repacked_data)
+        
+        if calced_checksum == checksum:
+            print(f"[checksum valid]")
+            print(f"[message] {message}")
+            # reply
+            reply = f"ACK|{message}"
+            
+            print(f"[message] {reply}")
+            print(f"[multiplexing src={dest_port} dst={source_port} len={length}]")
+            
+            sock.sendto(reply.encode(), addr)
+            
+        else:
+            print(f"[checksum invalid]")
+            print(f"[datagram discarded]")
+        
 
 # def client_handler(sock: socket.socket, name: str):
 #     msg = f"[system]: {name} joined the chat."

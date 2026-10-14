@@ -1,0 +1,113 @@
+import argparse
+import socket
+import sys
+import re
+
+from _thread import start_new_thread
+
+def input_args_handler() -> tuple:
+    # Input Argument Handling
+    parser = argparse.ArgumentParser(
+        description="Simple TCP Messaging Client (1024 Bytes)."
+    )
+    parser.add_argument(
+        "-i", "--hostname", "--ip",
+        help="Hostname of the server to connect to.",
+        default="127.0.0.1"
+    )
+    parser.add_argument(
+        "-p", "--port",
+        help="Port to connect to the server.",
+        default=None
+    )
+    args = parser.parse_args()
+    
+    port = args.port
+
+    if not port:
+        sys.exit("Missing port number input.")
+
+    try:
+        port = int(port)
+        if port < 1 or port > 65535:
+            raise ValueError
+    except ValueError:
+        sys.exit("Invalid port. Please input proper port number.")
+    
+    host = args.hostname
+    try:
+        pattern = re.compile(r"^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$")
+        pattern2 = re.compile(r"^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$")
+        if not pattern.match(host) or not pattern2.match(host):
+            raise ValueError
+    except ValueError:
+        sys.exit("Invalid hostname. Please input valid hostname or IP address.")
+
+    return host, port
+    
+def init_socket(port: int, host: str = "127.0.0.1"):
+    """Initializes the socket program.
+
+    Args:
+        host (str, optional): Hostname / IP Address. Defaults to "127.0.0.1".
+        port (int): Port Number.
+    """
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        client_socket.connect((host, port))
+        # Enter client loop
+        client_loop(client_socket)
+    except TimeoutError:
+        sys.exit("Connection timed out. Terminating...")
+    except InterruptedError:
+        sys.exit("Connection interrupted. Terminating...")
+    except:
+        sys.exit("Connection error. Terminating...")
+
+def listen_for_msg(sock: socket.socket):
+    while True:
+        try:
+            msg = sock.recv(1024)
+            if not msg:
+                sys.exit("Client disconnected from server. Exiting...")
+
+            text = msg.decode("utf-8")
+
+            sys.stdout.write(f"\033D\033[A\033[s\033[L\r{text}\033[u\033[B")
+            sys.stdout.flush()
+
+        except OSError:
+            break
+
+
+def client_loop(sock: socket.socket):
+    name = input("Enter username: ")
+    # TODO: Add error handling
+    # Send username to server
+    sock.send(name.encode(encoding="utf-8"))
+    
+    # start listener as thread
+    start_new_thread(listen_for_msg, (sock,))
+    
+    message = input("> ")
+    while(message != "/quit"):
+        pattern = re.compile(r"\/.*") # don't send anything that starts with a slash.
+        sys.stdout.write("\033[A\033[2K\r")
+        sys.stdout.flush()
+        if pattern.match(message):
+            print("[CLIENT_ERR] Invalid command. Type /quit to quit the program.")
+        else:
+            sock.send(message.encode(encoding="utf-8"))
+        message = input("> ")
+    
+    print("Disconnecting from server...")
+    sock.close()
+    print("Quitting program...")
+
+def main():
+    hostname, port = input_args_handler()
+    init_socket(host=hostname, port=port)
+    sys.exit(0)
+
+if __name__ == "__main__":
+    main()

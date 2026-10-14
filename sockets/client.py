@@ -5,12 +5,6 @@ import re
 
 from _thread import start_new_thread
 
-try:
-    import readline
-except ImportError:
-    # Windows fallback (requires: pip install pyreadline3)
-    import pyreadline3 as readline
-
 def input_args_handler() -> tuple:
     # Input Argument Handling
     parser = argparse.ArgumentParser(
@@ -79,8 +73,7 @@ def listen_for_msg(sock: socket.socket):
 
             text = msg.decode("utf-8")
 
-            current_input = readline.get_line_buffer()
-            sys.stdout.write(f"\r\033[K{text}\n> {current_input}")
+            sys.stdout.write(f"\033D\033[A\033[s\033[L\r{text}\033[u\033[B")
             sys.stdout.flush()
 
         except OSError:
